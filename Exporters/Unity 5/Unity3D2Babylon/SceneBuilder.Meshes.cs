@@ -44,7 +44,7 @@ namespace Unity3D2Babylon
             ExporterWindow.ReportProgress(progress, "Exporting mesh: " + gameObject.name);
 
             babylonMesh.name = gameObject.name;
-            babylonMesh.id = GetID(transform.gameObject);
+            babylonMesh.id = GetID(transform.gameObject);            
 
             if (renderer != null)
             {
@@ -249,6 +249,30 @@ namespace Unity3D2Babylon
                         babylonMesh.checkCollisions = true;
                     }
                 }
+            }             
+
+            if (gameObject.name == "ReservedSpace")
+            {
+                BoxCollider collider = gameObject.GetComponent<Collider>() as BoxCollider;
+                GameObject colliderCube = GameObject.CreatePrimitive(PrimitiveType.Cube);
+
+                colliderCube.name = "ReservedSpace_BoxCollider";
+                colliderCube.transform.SetParent(transform);
+                colliderCube.transform.localPosition = collider.center;
+                colliderCube.transform.localRotation = Quaternion.identity;
+                colliderCube.transform.localScale = collider.size;
+
+                MeshFilter meshFilter = colliderCube.GetComponent<MeshFilter>();
+
+                MeshRenderer meshRenderer = colliderCube.GetComponent<MeshRenderer>();
+                if (meshRenderer != null)
+                {
+                    meshRenderer.material = null;
+                }
+                
+                ConvertUnityMeshToBabylon(meshFilter.sharedMesh, colliderCube.transform, colliderCube, progress);
+
+                UnityEngine.Object.DestroyImmediate(colliderCube);                
             }
 
             return babylonMesh;

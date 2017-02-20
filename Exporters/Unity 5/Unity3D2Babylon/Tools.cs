@@ -49,5 +49,19 @@ namespace Unity3D2Babylon
 
             return result;
         }
+
+        public static bool HasAlpha(this Texture2D tex2D)
+        {
+            var colors = tex2D.GetPixels();
+            for (int i = 0; i < colors.Length; i++)
+            {
+                if (colors[i].a < 1f)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
     }
 }

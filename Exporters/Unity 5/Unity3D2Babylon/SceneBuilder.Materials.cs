@@ -104,7 +104,7 @@ namespace Unity3D2Babylon
                     var previousTextureType = textureImporter.textureType;
                     var previousGrayscaleToAlpha = textureImporter.grayscaleToAlpha;
 
-                    textureImporter.textureType = TextureImporterType.Advanced;
+                    textureImporter.textureType = TextureImporterType.Default;
                     textureImporter.isReadable = true;
                     textureImporter.lightmap = false;
                     textureImporter.normalmap = false;
@@ -176,16 +176,16 @@ namespace Unity3D2Babylon
                 return DumpPBRMaterial(renderer.sharedMaterial, renderer, false);
             }
 
-            return DumpStandardMaterial(renderer.sharedMaterial, renderer);
+            return DumpStandardMaterial(material, renderer);
         }
 
         private BabylonMaterial DumpStandardMaterial(Material material, Renderer renderer)
         {
             var materialNotSupported = false;
-
+            
             if (!materialsDictionary.ContainsKey(material.name))
             {
-                var bMat = new BabylonStandardMaterial
+                var bMat = new Assets.Unity3D2Babylon.Entities.BabylonExtendedStandardMaterial() // BabylonStandardMaterial
                 {
                     name = material.name,
                     id = Guid.NewGuid().ToString(),
@@ -219,7 +219,7 @@ namespace Unity3D2Babylon
                 {
                     var emissiveColor = material.GetColor("_Emission");
                     bMat.emissive = emissiveColor.ToFloat();
-                }
+                }                    
 
                 if (material.mainTexture && material.mainTexture.GetType().FullName == "UnityEngine.ProceduralTexture")
                 {
@@ -230,6 +230,13 @@ namespace Unity3D2Babylon
                 if (material.mainTexture && !(materialNotSupported))
                 {
                     var mainTexturePath = AssetDatabase.GetAssetPath(material.mainTexture);
+                    // Need to set the isReadable and textureType to advanced to be able to do GetPixels() inside HasAlpha()
+                    TextureImporter importer = AssetImporter.GetAtPath(mainTexturePath) as TextureImporter;
+                    importer.isReadable = true;
+                    importer.textureType = TextureImporterType.Default;
+
+                    importer.SaveAndReimport();                   
+
                     bMat.diffuseTexture = new BabylonTexture
                     {
                         uScale = material.mainTextureScale.x,
@@ -249,16 +256,32 @@ namespace Unity3D2Babylon
                         alphaCuttOff = material.GetFloat("_Cutoff");
                     }
 
-                    if ((mainTexture2D && mainTexture2D.alphaIsTransparency) || alphaCuttOff > 0)
+                    bool texHasAlpha = false;
+                    
+                    //if (material.shader.name.StartsWith("Legacy Shaders/Transparent/") 
+                    //    || material.shader.name.StartsWith( "Unlit/Transparent" ) )
+                    if (material.shader.name.Contains("Transparent"))
+                    {
+                        texHasAlpha = mainTexture2D.HasAlpha();
+                    }                   
+                                         
+                    // If has alpha set the useAlpha value 
+                    if (texHasAlpha)
+                    {
+                        bMat.useAlphaFromDiffuseTexture = true;
+                    }
+
+                    if ((mainTexture2D && mainTexture2D.alphaIsTransparency) || alphaCuttOff > 0 || texHasAlpha)
                     {
                         bMat.diffuseTexture.hasAlpha = true;
                         bMat.backFaceCulling = false;
                     }
 
-                    bMat.diffuse[0] = 1.0f;
-                    bMat.diffuse[1] = 1.0f;
-                    bMat.diffuse[2] = 1.0f;
-                    bMat.diffuse[3] = 1.0f;
+                    // Why? It's already set at line 196
+                    //bMat.diffuse[0] = 1.0f;
+                    //bMat.diffuse[1] = 1.0f;
+                    //bMat.diffuse[2] = 1.0f;
+                    //bMat.diffuse[3] = 1.0f;
                 }
 
                 bMat.bumpTexture = DumpTextureFromMaterial(material, "_BumpMap");
@@ -268,7 +291,7 @@ namespace Unity3D2Babylon
 
                 if (bMat.ambientTexture == null && renderer.lightmapIndex >= 0 && renderer.lightmapIndex != 255 && LightmapSettings.lightmaps.Length > renderer.lightmapIndex)
                 {
-                    var lightmap = LightmapSettings.lightmaps[renderer.lightmapIndex].lightmapFar;
+                    var lightmap = LightmapSettings.lightmaps[renderer.lightmapIndex].lightmapLight;
                     bMat.lightmapTexture = DumpTexture(lightmap, isLightmap: true);
                     bMat.lightmapTexture.coordinatesIndex = 1;
                     bMat.useLightmapAsShadowmap = true;
@@ -461,7 +484,7 @@ namespace Unity3D2Babylon
             var previousTextureType = textureImporter.textureType;
             var previousGrayscaleToAlpha = textureImporter.grayscaleToAlpha;
 
-            textureImporter.textureType = TextureImporterType.Advanced;
+            textureImporter.textureType = TextureImporterType.Default;
             textureImporter.isReadable = true;
             textureImporter.lightmap = false;
             textureImporter.normalmap = false;

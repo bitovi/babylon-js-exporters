@@ -127,10 +127,11 @@ namespace Unity3D2Babylon
             {
                 var progress = ((float)index / itemsCount);
                 index++;
+
                 // Static meshes
                 var meshFilter = gameObject.GetComponent<MeshFilter>();
-                if (meshFilter != null)
-                {                    
+                if (meshFilter != null && meshFilter.sharedMesh != null)
+                {                
                     ConvertUnityMeshToBabylon(meshFilter.sharedMesh, meshFilter.transform, gameObject, progress);
                     continue;
                 }

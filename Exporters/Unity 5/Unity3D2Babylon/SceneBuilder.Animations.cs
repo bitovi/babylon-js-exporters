@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using Assets.Unity3D2Babylon.Entities;
 using BabylonExport.Entities;
 using UnityEditor;
 using UnityEditor.Animations;
@@ -39,10 +40,18 @@ namespace Unity3D2Babylon
             }
             else
             {
-                var animation = transform.gameObject.GetComponent<Animation>();
+                Animation animation = transform.gameObject.GetComponent<Animation>();                
+
                 if (animation != null && animation.clip != null)
                 {
-                    ExportAnimationClip(animation.clip, animation.playAutomatically, animatable);
+                    List<AnimationState> states = new List<AnimationState>(animation.Cast<AnimationState>());
+                    List<BabylonExtendedAnimation> animations = new List<BabylonExtendedAnimation>();
+                    foreach ( AnimationState state in states )
+                    {
+                        ExportAnimationClip(state.clip, animation.playAutomatically, animatable, animations);
+                    }
+
+                    animatable.animations = animations.ToArray();
                 }
             }
         }
@@ -140,10 +149,10 @@ namespace Unity3D2Babylon
             }
         }
 
-        private static void ExportAnimationClip(AnimationClip clip, bool autoPlay, BabylonIAnimatable animatable)
+        private static void ExportAnimationClip(AnimationClip clip, bool autoPlay, BabylonIAnimatable animatable, List<BabylonExtendedAnimation> animationsList = null)
         {
             var curveBindings = AnimationUtility.GetCurveBindings(clip);
-            var animations = new List<BabylonAnimation>();
+            var animations = new List<BabylonExtendedAnimation>();
 
             var maxFrame = 0;
 
@@ -190,10 +199,10 @@ namespace Unity3D2Babylon
                         continue;
                 }
 
-                var babylonAnimation = new BabylonAnimation
+                var babylonAnimation = new BabylonExtendedAnimation
                 {
                     dataType = (int)BabylonAnimation.DataType.Float,
-                    name = property + " animation",
+                    name = property + " " + clip.name,
                     keys = curve.keys.Select(keyFrame => new BabylonAnimationKey
                     {
                         frame = (int)(keyFrame.time * clip.frameRate),
@@ -201,7 +210,8 @@ namespace Unity3D2Babylon
                     }).ToArray(),
                     framePerSecond = (int)clip.frameRate,
                     loopBehavior = (int)BabylonAnimation.LoopBehavior.Cycle,
-                    property = property
+                    property = property,
+                    meshpath = binding.path
                 };
 
                 maxFrame = Math.Max(babylonAnimation.keys.Last().frame, maxFrame);
@@ -211,7 +221,15 @@ namespace Unity3D2Babylon
 
             if (animations.Count > 0)
             {
-                animatable.animations = animations.ToArray();
+                if ( animationsList == null )
+                {
+                    animatable.animations = animations.ToArray();
+                } 
+                else
+                {
+                    animationsList.AddRange(animations);
+                }
+                
                 if (autoPlay)
                 {
                     animatable.autoAnimate = true;
